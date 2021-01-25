@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -38,23 +39,24 @@ func decodeJWT(jwt string) error {
 	if err != nil {
 		return err
 	}
-
-	payload, err := decodePart(parts[2])
+	payload, err := decodePart(parts[1])
 	if err != nil {
 		return err
 	}
 
-	signature, err := decodePart(parts[2])
+	fmtHeader, err := json.MarshalIndent(json.RawMessage(header), "", " ")
+	if err != nil {
+		return err
+	}
+	fmtPayload, err := json.MarshalIndent(json.RawMessage(payload), "", " ")
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("Header:")
-	fmt.Println(string(header))
-	fmt.Println("Payload:")
-	fmt.Println(string(payload))
-	fmt.Println("Signature:")
-	fmt.Println(string(signature))
+	fmt.Println("\nHeader:")
+	fmt.Println(string(fmtHeader))
+	fmt.Println("\nPayload:")
+	fmt.Println(string(fmtPayload))
 	return nil
 }
 
@@ -66,5 +68,7 @@ func decodePart(part string) ([]byte, error) {
 		part = part + "="
 	}
 
+	part = strings.ReplaceAll(part, "-", "+")
+	part = strings.ReplaceAll(part, "_", "/")
 	return base64.StdEncoding.DecodeString(part)
 }
