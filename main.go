@@ -7,23 +7,10 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/urfave/cli/v2"
 )
-
-func main() {
-	app := &cli.App{
-		Name:  "jwtd",
-		Usage: "TODO",
-		Action: func(c *cli.Context) error {
-			return decodeJWT(c.Args().Get(0))
-		},
-	}
-
-	if err := app.Run(os.Args); err != nil {
-		fmt.Println("error:", err)
-	}
-}
 
 func decodeJWT(jwt string) error {
 	if len(jwt) == 0 {
@@ -44,31 +31,84 @@ func decodeJWT(jwt string) error {
 		return err
 	}
 
-	fmtHeader, err := json.MarshalIndent(json.RawMessage(header), "", " ")
+	var headerParams map[string]interface{}
+	if err := json.Unmarshal(header, &headerParams); err != nil {
+		return err
+	}
+	fmtHeader, err := json.MarshalIndent(headerParams, "", " ")
 	if err != nil {
 		return err
 	}
-	fmtPayload, err := json.MarshalIndent(json.RawMessage(payload), "", " ")
+	var claims map[string]interface{}
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		return err
+	}
+	fmtPayload, err := json.MarshalIndent(claims, "", " ")
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("\nHeader:")
+	var expHuman, nbfHuman, iatHuman time.Time
+	if v, ok := claims["exp"]; ok {
+		if vv, ok := v.(float64); ok {
+			expHuman = time.Unix(int64(vv), 0)
+		}
+	}
+	if v, ok := claims["nbf"]; ok {
+		if vv, ok := v.(float64); ok {
+			nbfHuman = time.Unix(int64(vv), 0)
+		}
+	}
+	if v, ok := claims["iat"]; ok {
+		if vv, ok := v.(float64); ok {
+			iatHuman = time.Unix(int64(vv), 0)
+		}
+	}
+
+	fmt.Println("\n=== Header ===")
 	fmt.Println(string(fmtHeader))
-	fmt.Println("\nPayload:")
+	fmt.Println("\n===Payload===")
 	fmt.Println(string(fmtPayload))
+	fmt.Println("\n===TimeHuman===")
+	if !isZero(iatHuman) {
+		fmt.Println("iat:", iatHuman.String())
+	}
+	if !isZero(nbfHuman) {
+		fmt.Println("nbf:", nbfHuman.String())
+	}
+	if !isZero(expHuman) {
+		fmt.Println("exp:", expHuman.String())
+	}
 	return nil
 }
 
 func decodePart(part string) ([]byte, error) {
-	switch len(part) % 4 {
-	case 2:
-		part = part + "=="
-	case 3:
+	for {
+		if len(part)%4 == 0 {
+			break
+		}
 		part = part + "="
 	}
 
 	part = strings.ReplaceAll(part, "-", "+")
 	part = strings.ReplaceAll(part, "_", "/")
 	return base64.StdEncoding.DecodeString(part)
+}
+
+func isZero(t time.Time) bool {
+	return t == time.Time{}
+}
+
+func main() {
+	app := &cli.App{
+		Name:  "jwtd",
+		Usage: "Set your JWT in the first argument.",
+		Action: func(c *cli.Context) error {
+			return decodeJWT(c.Args().Get(0))
+		},
+	}
+
+	if err := app.Run(os.Args); err != nil {
+		fmt.Println("error:", err)
+	}
 }
