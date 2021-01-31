@@ -102,7 +102,16 @@ func isZero(t time.Time) bool {
 func main() {
 	app := &cli.App{
 		Name:  "jwtd",
-		Usage: "Set your JWT in the first argument.",
+		Usage: "JWT decoding tool.",
+		Commands: []*cli.Command{{
+			Name:    "decode",
+			Aliases: []string{"d"},
+			Usage:   "Decodes a JWT in JWS format.",
+			Action: func(c *cli.Context) error {
+				return decodeJWT(c.Args().Get(0))
+			},
+		}},
+		Copyright: "MIT",
 		Action: func(c *cli.Context) error {
 			return decodeJWT(c.Args().Get(0))
 		},
